@@ -1,0 +1,13 @@
+.env
+chroma_db/
+phoenix_traces/
+data/uploads/
+data/golden_dataset.json
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+node_modules/
+package.json
+package-lock.json

@@ -1,0 +1,7 @@
+issue_number,pr_number,branch,pr_title,depends_on,type,status
+1,1,chore/project-scaffold,"chore: project scaffold and environment",,AFK,
+2,2,feat/pdf-ingestion,"feat: PDF ingestion pipeline with dedup",1,AFK,
+3,3,feat/crag-graph,"feat: CRAG LangGraph nodes, routing, and assembly","1,2",AFK,
+4,4,feat/observability,"feat: Arize Phoenix observability setup",3,AFK,
+5,5,feat/streamlit-ui,"feat: Streamlit UI for ingestion and querying","2,3,4",AFK,
+6,6,feat/ragas-eval,"feat: Ragas evaluation script and golden dataset","2,3",AFK,

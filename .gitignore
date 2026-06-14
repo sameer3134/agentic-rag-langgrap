@@ -1,7 +1,8 @@
 .env
 chroma_db/
 phoenix_traces/
-data/uploads/
+data/uploads/*
+!data/uploads/.gitkeep
 data/golden_dataset.json
 __pycache__/
 *.pyc

@@ -1,8 +1,8 @@
 langchain==0.3.*
 langgraph==0.2.*
 langchain-openai==0.2.*
-langchain-community==0.3.*
-chromadb==0.5.*
-streamlit==1.38.*
-pypdf==4.*
+langchain-chroma>=0.1.2
+chromadb>=0.4.0,<0.6.0
+streamlit>=1.38.0
+pypdf>=4.0.0
 python-dotenv

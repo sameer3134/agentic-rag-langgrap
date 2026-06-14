@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "deny": [
+    ],
+    "ask": [
+      "Bash(rm -rf*)",
+      "Bash(rm -r*)",
+      "Bash(rm *)"
+    ],
+    "allow": [
+      "Bash(*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Agent",
+      "Skill",
+      "WebFetch",
+      "WebSearch",
+      "NotebookEdit"
+    ]
+  }
+}

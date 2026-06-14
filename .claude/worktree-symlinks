@@ -1,0 +1,15 @@
+# Files and directories symlinked from the main repo into every worktree.
+# Paths are relative to the repo root.
+# Blank lines and lines starting with # are ignored.
+
+# Shared secrets — all worktrees use the same API keys
+.env
+
+# Shared vector store — all worktrees read/write the same Chroma DB
+chroma_db
+
+# Shared Phoenix traces
+phoenix_traces
+
+# Shared uploaded PDFs and golden dataset
+data

@@ -23,17 +23,33 @@ from ingest import ingest_pdfs
 from observability import setup_observability
 
 
+def _load_secrets() -> None:
+    """Load secrets from st.secrets (Streamlit Cloud) then .env (local dev)."""
+    load_dotenv()  # no-op if .env absent; does not overwrite existing env vars
+    for key in ("OPENAI_API_KEY", "CHROMA_PERSIST_DIR", "PHOENIX_PORT", "PHOENIX_TRACE_DIR"):
+        if key in st.secrets and not os.environ.get(key):
+            os.environ[key] = st.secrets[key]
+
+
 @st.cache_resource
 def _init_resources():
     """Run once per Streamlit server process. Returns (vectorstore, compiled_graph)."""
-    load_dotenv()
+    _load_secrets()
     setup_observability()
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        st.error(
+            "OPENAI_API_KEY is not set. "
+            "Add it in **Streamlit Cloud → Settings → Secrets** as:\n\n"
+            "```toml\nOPENAI_API_KEY = \"sk-...\"\n```"
+        )
+        st.stop()
 
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     vectorstore = Chroma(
         collection_name="crag_corpus",
         embedding_function=embeddings,
-        persist_directory=os.getenv("CHROMA_PERSIST_DIR", "./chroma_db"),
+        persist_directory=os.environ.get("CHROMA_PERSIST_DIR", "./chroma_db"),
     )
     graph = build_graph()
     return vectorstore, graph

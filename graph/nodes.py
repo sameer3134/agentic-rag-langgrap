@@ -4,12 +4,15 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from langchain_community.vectorstores import Chroma
+from dotenv import load_dotenv
+from langchain_chroma import Chroma
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import BaseModel, Field
 
 from graph.state import CRAGState, GradeResult
+
+load_dotenv()
 
 RELEVANCE_THRESHOLD = 0.7
 MAX_ITERATIONS = 2

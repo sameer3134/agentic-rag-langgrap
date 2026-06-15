@@ -1,13 +1,15 @@
 """LangGraph graph assembly — build_graph(collection_name) returns a compiled CRAG graph."""
 from __future__ import annotations
 
+from typing import Any
+
 from langgraph.graph import END, START, StateGraph
 
 from graph.nodes import make_nodes
 from graph.state import CRAGState
 
 
-def build_graph(collection_name: str):
+def build_graph(collection_name: str) -> Any:
     """Compile and return a CRAG graph scoped to the given Chroma collection."""
     nodes = make_nodes(collection_name)
 

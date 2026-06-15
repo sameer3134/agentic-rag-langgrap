@@ -5,9 +5,7 @@ GradeResult and CRAGState are TypedDicts — intentionally simple dicts
 with type annotations. LangGraph merges partial dicts between nodes;
 mutable Pydantic models would break that merge contract.
 """
-from __future__ import annotations
-
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 
 class GradeResult(TypedDict):
@@ -28,10 +26,10 @@ class CRAGState(TypedDict):
     state dict in place.
     """
 
-    query: str                        # Original user query — never overwritten
-    reformulated_query: str | None    # Set by reformulate_query node; None on first pass
-    retrieved_docs: list              # list[Document] — bare list avoids import-time LangChain dep
-    grade_results: list               # list[GradeResult] — populated by grade_documents node
-    final_answer: str | None          # Set by generate or not_found node
-    iteration_count: int              # Starts at 0; incremented by reformulate_query
-    user_id: str                      # Display name of the user; used for tracing/debugging
+    query: str                           # Original user query — never overwritten
+    reformulated_query: Optional[str]    # Set by reformulate_query node; None on first pass
+    retrieved_docs: list                 # list[Document] — bare list avoids import-time LangChain dep
+    grade_results: list                  # list[GradeResult] — populated by grade_documents node
+    final_answer: Optional[str]          # Set by generate or not_found node
+    iteration_count: int                 # Starts at 0; incremented by reformulate_query
+    user_id: str                         # Display name of the user; used for tracing/debugging

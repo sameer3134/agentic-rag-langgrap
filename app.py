@@ -45,12 +45,17 @@ def _slugify(name: str) -> str:
 @st.dialog("Welcome to CRAG Pipeline")
 def _name_modal() -> None:
     st.write("Enter your name to create a personal document workspace.")
-    name = st.text_input("Your name", placeholder="e.g. Alice")
-    if st.button("Start", disabled=not name.strip(), use_container_width=True):
-        st.session_state.user_name = name.strip()
-        st.session_state.collection_name = f"crag_{_slugify(name.strip())}"
-        st.query_params["user"] = name.strip()  # survives page refresh
-        st.rerun()
+    with st.form("name_form", border=False):
+        name = st.text_input("Your name", placeholder="e.g. Alice")
+        submitted = st.form_submit_button("Start", use_container_width=True)
+    if submitted:
+        if name.strip():
+            st.session_state.user_name = name.strip()
+            st.session_state.collection_name = f"crag_{_slugify(name.strip())}"
+            st.query_params["user"] = name.strip()
+            st.rerun()
+        else:
+            st.error("Please enter your name.")
 
 
 @st.cache_resource
@@ -96,7 +101,6 @@ def _render_debug_panel(state: dict) -> None:
 # ---------------------------------------------------------------------------
 
 if "user_name" not in st.session_state:
-    # URL param survives refresh — silently restore without showing modal
     param_name = st.query_params.get("user", "").strip()
     if param_name:
         st.session_state.user_name = param_name

@@ -17,19 +17,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _initialized: bool = False
-
 logger = logging.getLogger(__name__)
 
 
 def setup_observability() -> None:
-    """Register Phoenix OTLP endpoint and LangChain instrumentor. Idempotent.
-
-    Reads:
-        PHOENIX_PORT — Phoenix server port (default: 6006)
-
-    Requires Phoenix server to be running separately:
-        python -m phoenix.server.main serve --port 6006
-    """
+    """Register Phoenix OTLP endpoint and LangChain instrumentor. Idempotent."""
     global _initialized
     if _initialized:
         return
@@ -41,10 +33,7 @@ def setup_observability() -> None:
         from phoenix.otel import register
         from openinference.instrumentation.langchain import LangChainInstrumentor
 
-        register(
-            project_name="crag-pipeline",
-            endpoint=endpoint,
-        )
+        register(project_name="crag-pipeline", endpoint=endpoint)
         LangChainInstrumentor().instrument()
         logger.info("Phoenix observability connected at http://localhost:%d", port)
     except Exception as exc:

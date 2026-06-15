@@ -1,62 +1,69 @@
-"""Streamlit application — PDF ingestion and CRAG querying UI.
+"""Streamlit application — CRAG pipeline with per-user document isolation.
 
 Run with: streamlit run app.py
 
-Startup sequence (once per server process, cached):
-  1. load_dotenv()
-  2. setup_observability()  — launches Phoenix, registers LangChain instrumentor
-  3. Chroma vectorstore     — connects to existing crag_corpus collection
-  4. build_graph()          — compiles the CRAG LangGraph state machine
+On first open a modal asks for the user's name, creating a personal
+Chroma collection (crag_{slug}) that isolates their documents from
+all other users.
 """
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
 
 from graph.graph import build_graph
 from ingest import ingest_pdfs
 from observability import setup_observability
 
+# ---------------------------------------------------------------------------
+# Config — must be first Streamlit call
+# ---------------------------------------------------------------------------
+
+st.set_page_config(page_title="CRAG Pipeline", layout="wide")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def _load_secrets() -> None:
-    """Load secrets from st.secrets (Streamlit Cloud) then .env (local dev)."""
-    load_dotenv()  # no-op if .env absent; does not overwrite existing env vars
-    for key in ("OPENAI_API_KEY", "CHROMA_PERSIST_DIR", "PHOENIX_PORT", "PHOENIX_TRACE_DIR"):
+    """Load from .env (local) then st.secrets (Streamlit Cloud), without overwriting."""
+    load_dotenv()
+    for key in ("OPENAI_API_KEY", "CHROMA_PERSIST_DIR", "PHOENIX_PORT"):
         if key in st.secrets and not os.environ.get(key):
             os.environ[key] = st.secrets[key]
 
 
+def _slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+
+
+@st.dialog("Welcome to CRAG Pipeline")
+def _name_modal() -> None:
+    st.write("Enter your name to create a personal document workspace.")
+    name = st.text_input("Your name", placeholder="e.g. Alice")
+    if st.button("Start", disabled=not name.strip(), use_container_width=True):
+        st.session_state.user_name = name.strip()
+        st.session_state.collection_name = f"crag_{_slugify(name.strip())}"
+        st.rerun()
+
+
 @st.cache_resource
-def _init_resources():
-    """Run once per Streamlit server process. Returns (vectorstore, compiled_graph)."""
+def _init_graph(collection_name: str):
+    """Build and cache one compiled graph per user collection."""
     _load_secrets()
-    setup_observability()
-
     if not os.environ.get("OPENAI_API_KEY"):
-        st.error(
-            "OPENAI_API_KEY is not set. "
-            "Add it in **Streamlit Cloud → Settings → Secrets** as:\n\n"
-            "```toml\nOPENAI_API_KEY = \"sk-...\"\n```"
-        )
+        st.error("OPENAI_API_KEY is not set. Add it to .env or Streamlit Cloud secrets.")
         st.stop()
-
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-    vectorstore = Chroma(
-        collection_name="crag_corpus",
-        embedding_function=embeddings,
-        persist_directory=os.environ.get("CHROMA_PERSIST_DIR", "./chroma_db"),
-    )
-    graph = build_graph()
-    return vectorstore, graph
+    setup_observability()
+    return build_graph(collection_name)
 
 
 def _render_debug_panel(state: dict) -> None:
-    """Render the collapsible Debug / Trace expander."""
     with st.expander("Debug / Trace", expanded=False):
         st.subheader("Retrieved Documents")
         retrieved_docs = state.get("retrieved_docs", [])
@@ -66,50 +73,53 @@ def _render_debug_panel(state: dict) -> None:
         for doc, grade in zip(retrieved_docs, grade_results):
             source = doc.metadata.get("source", "unknown")
             page = doc.metadata.get("page", "?")
-            score = grade["score"]
-            reason = grade["reason"]
-            label = f"`{source}` — page {page} — score {score:.2f}"
-            if score >= 0.7:
-                st.success(f"{label}\n\nReason: {reason}")
+            label = f"`{source}` — page {page} — score {grade['score']:.2f}"
+            if grade["score"] >= 0.7:
+                st.success(f"{label}\n\nReason: {grade['reason']}")
             else:
-                st.error(f"{label}\n\nReason: {reason}")
+                st.error(f"{label}\n\nReason: {grade['reason']}")
 
         st.subheader("Reformulation History")
-        if state.get("reformulated_query") is not None:
+        if state.get("reformulated_query"):
             st.write(f"Original: {state['query']}")
             st.write(f"Reformulated: {state['reformulated_query']}")
         else:
             st.write("No reformulation was triggered.")
 
         st.subheader("Iterations")
-        st.write(f"Iterations: {state.get('iteration_count', 0)}")
+        st.write(f"Iterations used: {state.get('iteration_count', 0)}")
 
 
 # ---------------------------------------------------------------------------
-# App layout
+# Gate: name modal before anything renders
 # ---------------------------------------------------------------------------
 
-st.set_page_config(page_title="CRAG Pipeline", layout="wide")
+if "user_name" not in st.session_state:
+    _name_modal()
+    st.stop()
+
+user_name: str = st.session_state.user_name
+collection_name: str = st.session_state.collection_name
+graph = _init_graph(collection_name)
+
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
 st.title("Agentic CRAG Pipeline")
+st.caption(f"Workspace: **{user_name}** · collection `{collection_name}`")
 
-# Sidebar — Phoenix link
 phoenix_port = int(os.getenv("PHOENIX_PORT", "6006"))
 st.sidebar.caption(f"Phoenix traces: http://localhost:{phoenix_port}")
 
-# Initialise all resources (cached after first run)
-_vectorstore, graph = _init_resources()
-
 # ---------------------------------------------------------------------------
-# PDF Upload section
+# PDF Upload
 # ---------------------------------------------------------------------------
 
 st.header("PDF Ingestion")
-
 Path("data/uploads").mkdir(parents=True, exist_ok=True)
 
-uploaded_files = st.file_uploader(
-    "Upload PDFs", type=["pdf"], accept_multiple_files=True
-)
+uploaded_files = st.file_uploader("Upload PDFs", type=["pdf"], accept_multiple_files=True)
 
 if uploaded_files:
     if st.button("Ingest"):
@@ -120,20 +130,17 @@ if uploaded_files:
             saved_paths.append(dest)
 
         with st.spinner("Ingesting..."):
-            result = ingest_pdfs(saved_paths)
+            result = ingest_pdfs(saved_paths, collection_name)
 
         if result.ingested:
             st.success(f"Ingested: {', '.join(result.ingested)}")
         if result.skipped:
-            st.warning(
-                f"Skipped (already in knowledge base): {', '.join(result.skipped)}"
-            )
-        if result.failed:
-            for entry in result.failed:
-                st.error(f"Failed: {entry}")
+            st.warning(f"Skipped (already in workspace): {', '.join(result.skipped)}")
+        for entry in result.failed:
+            st.error(f"Failed: {entry}")
 
 # ---------------------------------------------------------------------------
-# Query section
+# Query
 # ---------------------------------------------------------------------------
 
 st.header("Query")
@@ -143,16 +150,15 @@ user_query = st.chat_input("Ask a question about your documents...")
 if user_query:
     try:
         with st.spinner("Thinking..."):
-            state = graph.invoke(
-                {
-                    "query": user_query,
-                    "reformulated_query": None,
-                    "retrieved_docs": [],
-                    "grade_results": [],
-                    "final_answer": None,
-                    "iteration_count": 0,
-                }
-            )
+            state = graph.invoke({
+                "query": user_query,
+                "reformulated_query": None,
+                "retrieved_docs": [],
+                "grade_results": [],
+                "final_answer": None,
+                "iteration_count": 0,
+                "user_id": user_name,
+            })
         st.markdown(state["final_answer"])
         _render_debug_panel(state)
     except Exception as e:

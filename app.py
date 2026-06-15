@@ -49,6 +49,7 @@ def _name_modal() -> None:
     if st.button("Start", disabled=not name.strip(), use_container_width=True):
         st.session_state.user_name = name.strip()
         st.session_state.collection_name = f"crag_{_slugify(name.strip())}"
+        st.query_params["user"] = name.strip()  # survives page refresh
         st.rerun()
 
 
@@ -91,8 +92,15 @@ def _render_debug_panel(state: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Gate: name modal before anything renders
+# Gate: restore from URL on refresh, show modal only on fresh visit
 # ---------------------------------------------------------------------------
+
+if "user_name" not in st.session_state:
+    # URL param survives refresh — silently restore without showing modal
+    param_name = st.query_params.get("user", "").strip()
+    if param_name:
+        st.session_state.user_name = param_name
+        st.session_state.collection_name = f"crag_{_slugify(param_name)}"
 
 if "user_name" not in st.session_state:
     _name_modal()
@@ -111,6 +119,12 @@ st.caption(f"Workspace: **{user_name}** · collection `{collection_name}`")
 
 phoenix_port = int(os.getenv("PHOENIX_PORT", "6006"))
 st.sidebar.caption(f"Phoenix traces: http://localhost:{phoenix_port}")
+
+if st.sidebar.button("Switch user", use_container_width=True):
+    del st.session_state["user_name"]
+    del st.session_state["collection_name"]
+    st.query_params.clear()
+    st.rerun()
 
 # ---------------------------------------------------------------------------
 # PDF Upload

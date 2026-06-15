@@ -34,3 +34,4 @@ class CRAGState(TypedDict):
     grade_results: list               # list[GradeResult] — populated by grade_documents node
     final_answer: str | None          # Set by generate or not_found node
     iteration_count: int              # Starts at 0; incremented by reformulate_query
+    user_id: str                      # Display name of the user; used for tracing/debugging

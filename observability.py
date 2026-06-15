@@ -1,7 +1,15 @@
-"""Arize Phoenix observability setup — stub.
+"""Arize Phoenix observability setup — best-effort, never blocks the app."""
+from __future__ import annotations
 
-Full implementation in feat/observability (PR #4).
+import os
 
-Public API (to be implemented):
-    setup_tracing() -> None
-"""
+
+def setup_observability() -> None:
+    try:
+        import phoenix as px
+        from openinference.instrumentation.langchain import LangChainInstrumentor
+
+        px.launch_app(port=int(os.getenv("PHOENIX_PORT", "6006")))
+        LangChainInstrumentor().instrument()
+    except Exception:
+        pass
